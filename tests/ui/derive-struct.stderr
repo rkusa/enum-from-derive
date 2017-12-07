@@ -1,0 +1,8 @@
+error: proc-macro derive panicked
+ --> $DIR/derive-struct.rs:4:10
+  |
+4 | #[derive(EnumFrom)]
+  |          ^^^^^^^^
+  |
+  = help: message: #[derive(EnumFrom)] can only be applied to enums. Test is not an enum.
+
