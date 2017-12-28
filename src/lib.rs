@@ -37,12 +37,12 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
 
             'variants: for variant in variants {
                 let field = match variant.data {
-                    VariantData::Tuple(ref fields) if fields.len() == 1 => fields.first().unwrap(),
+                    VariantData::Tuple(ref fields) if fields.len() == 1 => Some(fields.first().unwrap()),
+                    VariantData::Unit => None,
                     // _ => continue,
-                    _ => panic!("Only one-field enum variants are supported"),
+                    _ => panic!("Only zero- or one-field enum variants are supported, {:?}", variant.data),
                 };
 
-                let ty = &field.ty;
                 let variant_name = &variant.ident;
                 let mut desc = None;
                 let mut skip_from = false;
@@ -74,46 +74,69 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                 }
 
                 if !skip_from {
-                    from_tokens.append(quote! {
-                        impl #impl_generics From<#ty> for #name #ty_generics #where_clause {
-                            fn from(err: #ty) -> #name #ty_generics {
-                                #name::#variant_name(err)
+                    if let Some(ty) = field.map(|f| &f.ty) {
+                        from_tokens.append(quote! {
+                            impl #impl_generics From<#ty> for #name #ty_generics #where_clause {
+                                fn from(err: #ty) -> #name #ty_generics {
+                                    #name::#variant_name(err)
+                                }
                             }
-                        }
-                    });
-                }
-
-                let is_string_type = is_string_type(&ty);
-
-                if let Some(desc) = desc {
-                    display_tokens.append(quote! {
-                        #name::#variant_name(ref err) => write!(f, "{}: {}", #desc, err),
-                    });
-
-                    description_tokens.append(quote! {
-                        #name::#variant_name(_) => #desc,
-                    });
-                } else {
-                    display_tokens.append(quote! {
-                        #name::#variant_name(ref err) => write!(f, "{}", err),
-                    });
-
-                    if is_string_type {
-                        description_tokens.append(quote! {
-                            #name::#variant_name(ref s) => s,
-                        });
-                    } else {
-                        description_tokens.append(quote! {
-                            #name::#variant_name(ref err) => err.description(),
                         });
                     }
                 }
 
-                if !is_string_type {
-                    cause_tokens.append(quote! {
-                        #name::#variant_name(ref err) => Some(err),
-                    });
-                    cause_patterns += 1;
+                let is_string_type = field.map(|f| is_string_type(&f.ty)).unwrap_or(false);
+
+                if field.is_some() {
+                    if let Some(desc) = desc {
+                        display_tokens.append(quote! {
+                            #name::#variant_name(ref err) => write!(f, "{}: {}", #desc, err),
+                        });
+
+                        description_tokens.append(quote! {
+                            #name::#variant_name(_) => #desc,
+                        });
+                    } else {
+                        display_tokens.append(quote! {
+                            #name::#variant_name(ref err) => write!(f, "{}", err),
+                        });
+
+                        if is_string_type {
+                            description_tokens.append(quote! {
+                                #name::#variant_name(ref s) => s,
+                            });
+                        } else {
+                            description_tokens.append(quote! {
+                                #name::#variant_name(ref err) => err.description(),
+                            });
+                        }
+                    }
+
+                    if !is_string_type {
+                        cause_tokens.append(quote! {
+                            #name::#variant_name(ref err) => Some(err),
+                        });
+                        cause_patterns += 1;
+                    }
+                } else {
+                    // is unit field
+                    if let Some(desc) = desc {
+                        display_tokens.append(quote! {
+                            #name::#variant_name => write!(f, "{}", #desc),
+                        });
+
+                        description_tokens.append(quote! {
+                            #name::#variant_name => #desc,
+                        });
+                    } else {
+                        display_tokens.append(quote! {
+                            #name::#variant_name => write!(f, "{}", "#variant_name"),
+                        });
+
+                        description_tokens.append(quote! {
+                            #name::#variant_name => "#variant_name",
+                        });
+                    }
                 }
             }
 
