@@ -46,6 +46,7 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                 let variant_name = &variant.ident;
                 let mut desc = None;
                 let mut skip_from = false;
+                let mut non_error = false;
 
                 for attr in variant.attrs.iter() {
                     match attr.value {
@@ -56,6 +57,7 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                                         match word.as_ref() {
                                             "skip" => continue 'variants,
                                             "skip_from" => skip_from = true,
+                                            "non_error" => non_error = true,
                                             _ => {}
                                         }
                                     },
@@ -105,6 +107,10 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                             description_tokens.append(quote! {
                                 #name::#variant_name(ref s) => s,
                             });
+                        } else if non_error {
+                            description_tokens.append(quote! {
+                                #name::#variant_name(_) => "#variant_name",
+                            });
                         } else {
                             description_tokens.append(quote! {
                                 #name::#variant_name(ref err) => err.description(),
@@ -112,7 +118,7 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                         }
                     }
 
-                    if !is_string_type {
+                    if !is_string_type && !non_error {
                         cause_tokens.append(quote! {
                             #name::#variant_name(ref err) => Some(err),
                         });
