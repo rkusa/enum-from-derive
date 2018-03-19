@@ -44,6 +44,7 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                 };
 
                 let variant_name = &variant.ident;
+                let variant_name_str = variant_name.to_string();
                 let mut desc = None;
                 let mut skip_from = false;
                 let mut non_error = false;
@@ -109,7 +110,7 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                             });
                         } else if non_error {
                             description_tokens.append(quote! {
-                                #name::#variant_name(_) => "#variant_name",
+                                #name::#variant_name(_) => #variant_name_str,
                             });
                         } else {
                             description_tokens.append(quote! {
@@ -136,11 +137,11 @@ fn build_enum_from(ast: &syn::DeriveInput) -> quote::Tokens {
                         });
                     } else {
                         display_tokens.append(quote! {
-                            #name::#variant_name => write!(f, "{}", "#variant_name"),
+                            #name::#variant_name => write!(f, "{}", #variant_name_str),
                         });
 
                         description_tokens.append(quote! {
-                            #name::#variant_name => "#variant_name",
+                            #name::#variant_name => #variant_name_str,
                         });
                     }
                 }
